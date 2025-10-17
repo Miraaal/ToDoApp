@@ -205,6 +205,50 @@ Assets/
 - 스와이프 제스처 감지 및 처리
 - 부드러운 애니메이션 (Lerp)
 
+## 개발 히스토리
+
+### 2025-10-17 (목)
+- ✅ **루틴 완료 체크박스 기능 구현**
+  - 체크박스 UI와 DB 실시간 동기화
+  - DB 업데이트 실패 시 UI 자동 롤백
+  - RoutineItemUI.cs 컴포넌트 작성
+
+- ✅ **DB 스키마 문제 해결**
+  - CSV import의 PRIMARY KEY 누락 문제 발견
+  - DatabaseMigration.cs 작성 (테이블 재생성 + 데이터 복원)
+  - PRIMARY KEY AUTOINCREMENT 적용
+
+- ✅ **타입 안전성 개선**
+  - SQLite TEXT/INTEGER 자동 변환 처리
+  - GetInt32() → GetValue() + Convert.ToInt32()
+
+- ✅ **한국 시간(KST) 적용**
+  - datetime('now', '+9 hours') 적용
+  - 자정 기준 정확한 날짜 구분
+
+- ✅ **루틴 추가 기능 기반 구현**
+  - AddRoutineDialog.cs 로직 완성
+  - RoutineUIController 연동
+  - UNITY_UI_SETUP.md 작성 (UI 구성 가이드)
+
+- ✅ **코드 정리**
+  - 디버그 로그 제거
+  - 레거시 메서드 삭제 (ToggleRoutineCompletionAsync)
+  - 문서 업데이트 (README, CLAUDE.md)
+
+### 2025-10-16 (수)
+- ✅ Unity 버전 업그레이드 (6000.0.59f2 → 6000.2.8f1)
+- ✅ .gitignore에 IDE 설정 파일 추가
+- ✅ 프로젝트 README 작성
+- ✅ GitHub 저장소 초기 설정
+
+### 이전 작업 (날짜 미상)
+- ✅ Unity 프로젝트 생성
+- ✅ SQLite DB 연결 (DatabaseManager.cs)
+- ✅ 루틴 목록 조회 기능
+- ✅ 스와이프 UI 네비게이션
+- ✅ 로딩 화면
+
 ## 라이선스
 
 개인 프로젝트 (비상업적 용도)
