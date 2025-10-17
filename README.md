@@ -21,30 +21,30 @@
 
 ## 데이터베이스 구조
 
-### Routines 테이블
+### routines 테이블
 ```sql
-CREATE TABLE Routines (
+CREATE TABLE routines (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,                    -- 루틴 제목
     type TEXT NOT NULL,                     -- 'daily', 'weekly', 'monthly'
     category TEXT,                          -- 카테고리 (운동, 공부, 건강, 취미 등)
     description TEXT,                       -- 설명
-    is_active BOOLEAN DEFAULT TRUE,         -- 활성 상태
-    created_at DATETIME,                    -- 생성 일시
-    updated_at DATETIME                     -- 수정 일시
+    is_active INTEGER DEFAULT 1,            -- 활성 상태 (0/1)
+    created_at TEXT,                        -- 생성 일시
+    updated_at TEXT                         -- 수정 일시
 );
 ```
 
-### RoutineCompletions 테이블
+### routine_completions 테이블
 ```sql
-CREATE TABLE RoutineCompletions (
+CREATE TABLE routine_completions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    routine_id INTEGER NOT NULL,            -- Routines.id 참조
-    start_date DATE NOT NULL,               -- 기준 날짜 (일일/주간/월간에 따라 다름)
-    is_completed BOOLEAN DEFAULT FALSE,     -- 완료 여부
-    completed_at DATETIME,                  -- 완료 시간
-    updated_at DATETIME,                    -- 수정 일시
-    FOREIGN KEY (routine_id) REFERENCES Routines(id)
+    routine_id INTEGER NOT NULL,            -- routines.id 참조
+    start_date TEXT NOT NULL,               -- 기준 날짜 (일일/주간/월간에 따라 다름)
+    is_completed INTEGER DEFAULT 0,         -- 완료 여부 (0/1)
+    completed_at TEXT,                      -- 완료 시간
+    updated_at TEXT,                        -- 수정 일시
+    FOREIGN KEY (routine_id) REFERENCES routines(id)
 );
 ```
 
@@ -74,7 +74,8 @@ Assets/
 - **루틴 관리 기능**
   - 활성 루틴 목록 조회 (`GetActiveRoutinesAsync`)
   - 새 루틴 추가 (`AddRoutineAsync`)
-  - 루틴 완료 상태 토글 (`ToggleRoutineCompletionAsync`)
+  - 루틴 완료 상태 설정 (`SetRoutineCompletionAsync`)
+  - 날짜별 완료 상태 일괄 조회 (`GetAllRoutineCompletionStatusAsync`)
   - SQL 파라미터 바인딩으로 SQL Injection 방지
 
 - **UI 컨트롤러**
@@ -103,13 +104,16 @@ Assets/
 4. 프로젝트가 열리면 `TodoLIst.unity` 씬 로드
 
 ### 데이터베이스 초기화
-```bash
-# SQLite CLI에서 실행
-sqlite3 Assets/StreamingAssets/ToDoList_DB.db
-.mode csv
-.import routines.csv Routines
-.import routine_completions.csv RoutineCompletions
-```
+
+**중요**: CSV import는 PRIMARY KEY가 제대로 설정되지 않으므로 사용하지 마세요!
+
+**권장 방법**: Unity 에디터에서 마이그레이션 스크립트 실행
+1. 빈 GameObject 생성
+2. `DatabaseMigration.cs` 컴포넌트 추가
+3. Play 모드로 실행
+4. 콘솔에서 완료 확인 후 GameObject 삭제
+
+마이그레이션은 올바른 스키마로 테이블을 생성하고 기존 데이터가 있으면 백업 후 복원합니다.
 
 ### 빌드 주의사항
 - **Windows**: StreamingAssets의 DB 파일이 읽기 전용
@@ -138,4 +142,4 @@ sqlite3 Assets/StreamingAssets/ToDoList_DB.db
 
 ---
 
-**마지막 업데이트**: 2025-10-16
+**마지막 업데이트**: 2025-10-17

@@ -96,7 +96,7 @@ public class DatabaseManager : MonoBehaviour
         await UniTask.SwitchToThreadPool();
 
         var command = dbConnection.CreateCommand();
-        command.CommandText = "SELECT id, title, type, category, description, created_at FROM Routines WHERE is_active = 1";
+        command.CommandText = "SELECT id, title, type, category, description, created_at FROM routines WHERE is_active = 1";
 
         var reader = command.ExecuteReader();
         var routines = new System.Collections.Generic.List<RoutineData>();
@@ -105,7 +105,7 @@ public class DatabaseManager : MonoBehaviour
         {
             var routine = new RoutineData
             {
-                id = reader.GetInt32(0),
+                id = Convert.ToInt32(reader.GetValue(0)),
                 title = reader.GetString(1),
                 type = reader.GetString(2),
                 category = reader.IsDBNull(3) ? "" : reader.GetString(3),
@@ -141,8 +141,8 @@ public class DatabaseManager : MonoBehaviour
         {
             var command = dbConnection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO Routines (title, type, category, description, is_active, created_at, updated_at)
-                VALUES (@title, @type, @category, @description, 1, datetime('now'), datetime('now'));
+                INSERT INTO routines (title, type, category, description, is_active, created_at, updated_at)
+                VALUES (@title, @type, @category, @description, 1, datetime('now', '+9 hours'), datetime('now', '+9 hours'));
                 SELECT last_insert_rowid();";
 
             AddParameter(command, "@title", title);
@@ -165,9 +165,9 @@ public class DatabaseManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 루틴 완료 상태 토글
+    /// 루틴 완료 상태를 특정 값으로 설정
     /// </summary>
-    public async UniTask<bool> ToggleRoutineCompletionAsync(int routineId, string startDate)
+    public async UniTask<bool> SetRoutineCompletionAsync(int routineId, string startDate, bool isCompleted)
     {
         if (!IsConnected)
         {
@@ -182,7 +182,7 @@ public class DatabaseManager : MonoBehaviour
             // 기존 완료 기록 확인
             var checkCommand = dbConnection.CreateCommand();
             checkCommand.CommandText = @"
-                SELECT id, is_completed FROM RoutineCompletions
+                SELECT id FROM routine_completions
                 WHERE routine_id = @routineId AND start_date = @startDate";
 
             AddParameter(checkCommand, "@routineId", routineId);
@@ -190,49 +190,105 @@ public class DatabaseManager : MonoBehaviour
 
             var reader = checkCommand.ExecuteReader();
             bool exists = reader.Read();
-            int completionId = exists ? reader.GetInt32(0) : -1;
-            bool currentStatus = exists && reader.GetBoolean(1);
-            reader.Close();
+            int completionId = -1;
 
-            IDbCommand command;
+            if (exists)
+            {
+                // SQLite에서 id를 안전하게 읽기 (TEXT나 INTEGER 모두 처리)
+                var idValue = reader.GetValue(0);
+                completionId = Convert.ToInt32(idValue);
+            }
+
+            reader.Close();
 
             if (exists)
             {
                 // 기존 기록 업데이트
-                command = dbConnection.CreateCommand();
+                var command = dbConnection.CreateCommand();
                 command.CommandText = @"
-                    UPDATE RoutineCompletions
-                    SET is_completed = @newStatus,
-                        completed_at = CASE WHEN @newStatus = 1 THEN datetime('now') ELSE NULL END,
-                        updated_at = datetime('now')
+                    UPDATE routine_completions
+                    SET is_completed = @isCompleted,
+                        completed_at = CASE WHEN @isCompleted = 1 THEN datetime('now', '+9 hours') ELSE NULL END,
+                        updated_at = datetime('now', '+9 hours')
                     WHERE id = @id";
 
                 AddParameter(command, "@id", completionId);
-                AddParameter(command, "@newStatus", !currentStatus);
+                AddParameter(command, "@isCompleted", isCompleted ? 1 : 0);
+
+                command.ExecuteNonQuery();
             }
-            else
+            else if (isCompleted)
             {
-                // 새 완료 기록 추가
-                command = dbConnection.CreateCommand();
+                // 새 완료 기록 추가 (체크된 경우만)
+                var command = dbConnection.CreateCommand();
                 command.CommandText = @"
-                    INSERT INTO RoutineCompletions (routine_id, start_date, is_completed, completed_at, updated_at)
-                    VALUES (@routineId, @startDate, 1, datetime('now'), datetime('now'))";
+                    INSERT INTO routine_completions (id, routine_id, start_date, is_completed, completed_at, updated_at)
+                    VALUES (NULL, @routineId, @startDate, 1, datetime('now', '+9 hours'), datetime('now', '+9 hours'))";
 
                 AddParameter(command, "@routineId", routineId);
                 AddParameter(command, "@startDate", startDate);
+
+                command.ExecuteNonQuery();
             }
 
-            command.ExecuteNonQuery();
-
             await UniTask.SwitchToMainThread();
-            Debug.Log($"✅ 루틴 완료 상태 변경: {routineId} ({startDate})");
             return true;
         }
         catch (Exception ex)
         {
             await UniTask.SwitchToMainThread();
-            Debug.LogError($"❌ 완료 상태 변경 실패: {ex.Message}");
+            Debug.LogError($"❌ 완료 상태 변경 실패: {ex.Message}\n{ex.StackTrace}");
             return false;
+        }
+    }
+
+
+    /// <summary>
+    /// 특정 날짜의 모든 루틴 완료 상태를 한번에 조회
+    /// </summary>
+    public async UniTask<System.Collections.Generic.Dictionary<int, bool>> GetAllRoutineCompletionStatusAsync(string startDate)
+    {
+        var completionStatus = new System.Collections.Generic.Dictionary<int, bool>();
+
+        if (!IsConnected)
+        {
+            Debug.LogError("❌ DB가 연결되지 않았습니다.");
+            return completionStatus;
+        }
+
+        await UniTask.SwitchToThreadPool();
+
+        try
+        {
+            var command = dbConnection.CreateCommand();
+            command.CommandText = @"
+                SELECT routine_id, is_completed FROM routine_completions
+                WHERE start_date = @startDate";
+
+            AddParameter(command, "@startDate", startDate);
+
+            var reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                int routineId = Convert.ToInt32(reader.GetValue(0));
+                // SQLite에서 0/1을 안전하게 읽기
+                var statusValue = reader.IsDBNull(1) ? 0 : reader.GetValue(1);
+                bool isCompleted = Convert.ToInt32(statusValue) != 0;
+                completionStatus[routineId] = isCompleted;
+            }
+
+            reader.Close();
+
+            await UniTask.SwitchToMainThread();
+
+            return completionStatus;
+        }
+        catch (Exception ex)
+        {
+            await UniTask.SwitchToMainThread();
+            Debug.LogError($"❌ 완료 상태 조회 실패: {ex.Message}\n{ex.StackTrace}");
+            return completionStatus;
         }
     }
 

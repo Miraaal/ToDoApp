@@ -13,13 +13,28 @@ public class RoutineUIController : MonoBehaviour
     [SerializeField] private GameObject loadingPanel;
     [SerializeField] private Text loadingText;
 
-    //[Header("루틴 목록 UI (향후 추가 예정)")]
-    // TODO: 루틴 목록을 표시할 UI 요소들
-    // [SerializeField] private Transform routineListContainer;
-    // [SerializeField] private GameObject routinePrefab;
+    [Header("루틴 목록 UI")]
+    [SerializeField] private Transform routineListContainer;
+    [SerializeField] private GameObject routinePrefab;
+
+    [Header("루틴 추가 UI")]
+    [SerializeField] private Button addRoutineButton;
+    [SerializeField] private AddRoutineDialog addRoutineDialog;
 
     async void Start()
     {
+        // 다이얼로그 초기화
+        if (addRoutineDialog != null)
+        {
+            addRoutineDialog.Initialize(this);
+        }
+
+        // 버튼 이벤트 연결
+        if (addRoutineButton != null)
+        {
+            addRoutineButton.onClick.AddListener(OnAddRoutineButtonClicked);
+        }
+
         // 로딩 화면 표시
         ShowLoading("초기화 중...");
 
@@ -62,55 +77,113 @@ public class RoutineUIController : MonoBehaviour
     /// </summary>
     private async UniTask LoadRoutinesAsync()
     {
+        // 1. 기존 UI 아이템 제거
+        foreach (Transform child in routineListContainer)
+        {
+            Destroy(child.gameObject);
+        }
+
+        // 2. DB에서 루틴 목록 가져오기
         RoutineData[] routines = await DatabaseManager.Instance.GetActiveRoutinesAsync();
 
-        // TODO: 실제 UI에 루틴 목록 표시하는 로직 추가
-        // 현재는 콘솔에 출력만 수행
+        // 3. 오늘 날짜의 완료 상태 일괄 조회
+        string today = DateTime.Now.ToString("yyyy-MM-dd");
+        var completionStatus = await DatabaseManager.Instance.GetAllRoutineCompletionStatusAsync(today);
+
+        // 4. 각 루틴마다 프리팹 인스턴스 생성
         foreach (var routine in routines)
         {
-            Debug.Log($"루틴 #{routine.id}: {routine.title} ({routine.type}, {routine.category})");
+            GameObject itemObj = Instantiate(routinePrefab, routineListContainer);
+            RoutineItemUI itemUI = itemObj.GetComponent<RoutineItemUI>();
+
+            // 완료 상태 확인 (Dictionary에서 조회)
+            bool isCompleted = completionStatus.ContainsKey(routine.id) ? completionStatus[routine.id] : false;
+
+            itemUI.Initialize(routine, this, isCompleted);
         }
 
         Debug.Log($"📊 총 {routines.Length}개의 루틴을 표시했습니다.");
     }
 
     /// <summary>
-    /// 새 루틴 추가 (UI 버튼에서 호출 가능)
+    /// 루틴 추가 버튼 클릭 (+ 버튼)
     /// </summary>
-    public async void OnAddRoutineButtonClicked()
+    public void OnAddRoutineButtonClicked()
     {
-        // TODO: 실제 UI에서 입력받은 값 사용
-        string title = "새 루틴";
-        string type = "daily";
-        string category = "일반";
+        if (addRoutineDialog != null)
+        {
+            addRoutineDialog.Open();
+        }
+        else
+        {
+            Debug.LogError("❌ AddRoutineDialog가 연결되지 않았습니다!");
+        }
+    }
 
+    /// <summary>
+    /// 다이얼로그에서 루틴 추가 요청 (AddRoutineDialog에서 호출)
+    /// </summary>
+    public async void OnAddRoutineRequested(string title, string type, string category, string description)
+    {
         ShowLoading("루틴 추가 중...");
 
-        int newId = await DatabaseManager.Instance.AddRoutineAsync(title, type, category);
+        int newId = await DatabaseManager.Instance.AddRoutineAsync(title, type, category, description);
 
         if (newId > 0)
         {
-            Debug.Log($"✅ 루틴 추가 성공! ID: {newId}");
+            Debug.Log($"✅ 루틴 추가 성공! ID: {newId}, 제목: {title}");
             await LoadRoutinesAsync(); // 목록 새로고침
+        }
+        else
+        {
+            Debug.LogError("❌ 루틴 추가 실패");
         }
 
         HideLoading();
     }
 
     /// <summary>
-    /// 루틴 완료 상태 토글 (UI 체크박스에서 호출 가능)
+    /// 루틴 완료 상태 설정 (UI 체크박스에서 호출)
     /// </summary>
-    public async void OnRoutineToggled(int routineId)
+    public async UniTask<bool> OnRoutineToggledAsync(int routineId, string routineType, bool isCompleted)
     {
-        // 현재 날짜 가져오기 (type에 따라 조정 필요)
-        string today = DateTime.Now.ToString("yyyy-MM-dd");
+        // 루틴 타입에 맞는 시작 날짜 계산
+        string startDate = GetStartDateForType(routineType);
 
-        bool success = await DatabaseManager.Instance.ToggleRoutineCompletionAsync(routineId, today);
+        bool success = await DatabaseManager.Instance.SetRoutineCompletionAsync(routineId, startDate, isCompleted);
 
         if (success)
         {
-            Debug.Log($"✅ 루틴 {routineId} 완료 상태 변경");
-            // TODO: UI 업데이트 (체크박스 상태 변경 등)
+            Debug.Log($"✅ 루틴 {routineId} 완료 상태 변경: {isCompleted} ({startDate})");
+        }
+        else
+        {
+            Debug.LogError($"❌ 루틴 {routineId} 완료 상태 변경 실패");
+        }
+
+        return success;
+    }
+
+    /// <summary>
+    /// 루틴 타입에 맞는 시작 날짜 계산
+    /// </summary>
+    private string GetStartDateForType(string type)
+    {
+        DateTime now = DateTime.Now;
+
+        switch (type.ToLower())
+        {
+            case "weekly":
+                // 이번 주 일요일
+                int daysToSunday = (int)now.DayOfWeek;
+                return now.AddDays(-daysToSunday).ToString("yyyy-MM-dd");
+
+            case "monthly":
+                // 이번 달 1일
+                return new DateTime(now.Year, now.Month, 1).ToString("yyyy-MM-dd");
+
+            default: // "daily"
+                return now.ToString("yyyy-MM-dd");
         }
     }
 

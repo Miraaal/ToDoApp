@@ -17,40 +17,51 @@ The application uses SQLite database stored at `Assets/StreamingAssets/ToDoList_
 
 ### Database Schema
 
-**Routines Table:**
+**IMPORTANT: Table names are lowercase with underscores:**
+- Actual table names in database: `routines` and `routine_completions`
+
+**routines Table:**
 - `id` (INTEGER, PRIMARY KEY, AUTO INCREMENT) - Unique identifier
 - `title` (TEXT, NOT NULL) - Name of the routine
 - `type` (TEXT, NOT NULL) - Repetition type: "daily", "weekly", or "monthly"
 - `category` (TEXT) - Optional categorization (e.g., "운동", "공부", "건강", "취미")
 - `description` (TEXT) - Optional additional details
 - `is_active` (BOOLEAN, DEFAULT TRUE) - Whether routine is currently active
-- `created_at` (DATETIME) - Creation timestamp
-- `updated_at` (DATETIME) - Last modification timestamp
+- `created_at` (TEXT) - Creation timestamp (KST, UTC+9)
+- `updated_at` (TEXT) - Last modification timestamp (KST, UTC+9)
 
-**RoutineCompletions Table:**
+**routine_completions Table:**
 - `id` (INTEGER, PRIMARY KEY, AUTO INCREMENT) - Unique identifier
-- `routine_id` (INTEGER, NOT NULL, FOREIGN KEY) - References Routines.id
-- `start_date` (DATE, NOT NULL) - Period start date (varies by type):
+- `routine_id` (INTEGER, NOT NULL, FOREIGN KEY) - References routines.id
+- `start_date` (TEXT, NOT NULL) - Period start date (varies by type):
   - daily: the specific date (e.g., 2025-10-16)
   - weekly: Sunday of that week (e.g., 2025-10-12)
   - monthly: first day of month (e.g., 2025-10-01)
-- `is_completed` (BOOLEAN, DEFAULT FALSE) - Completion status
-- `completed_at` (DATETIME, NULLABLE) - Actual completion timestamp
-- `updated_at` (DATETIME) - Last modification timestamp
+- `is_completed` (INTEGER, DEFAULT 0) - Completion status (0/1)
+- `completed_at` (TEXT, NULLABLE) - Actual completion timestamp (KST, UTC+9)
+- `updated_at` (TEXT) - Last modification timestamp (KST, UTC+9)
 
-### CSV Import Files
+### Database Setup
 
+**IMPORTANT:** Do not use direct CSV import as it creates tables without PRIMARY KEY or AUTOINCREMENT!
+
+#### Recommended Setup (Proper Schema):
+```bash
+# Run the SQL script to create tables with correct schema
+sqlite3 Assets/StreamingAssets/ToDoList_DB.db < recreate_tables.sql
+```
+
+The `recreate_tables.sql` file:
+- Creates tables with proper PRIMARY KEY AUTOINCREMENT
+- Backs up existing data before recreation
+- Restores data after creating proper schema
+
+#### CSV Import Files (Reference Only):
 Sample data exists in two CSV files at the project root:
 - `routines.csv` - Sample routine definitions
 - `routine_completions.csv` - Sample completion records
 
-To import into SQLite:
-```bash
-sqlite3 Assets/StreamingAssets/ToDoList_DB.db
-.mode csv
-.import routines.csv Routines
-.import routine_completions.csv RoutineCompletions
-```
+**WARNING:** Direct CSV import (`.import` command) creates tables without constraints and should be avoided.
 
 ## Project Structure
 
