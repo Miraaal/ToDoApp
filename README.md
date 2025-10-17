@@ -63,37 +63,64 @@ Assets/
     └── ToDoList_DB.db               # SQLite 데이터베이스 (런타임 접근)
 ```
 
-## 주요 기능 (2025-10-16 기준)
+## 주요 기능 (2025-10-17 기준)
 
 ### ✅ 구현 완료
-- **데이터베이스 연결 관리**
+
+#### 데이터베이스
+- **연결 관리**
   - 싱글톤 패턴 기반 DatabaseManager
   - 비동기 DB 연결 (UniTask)
   - 연결 상태 체크 및 에러 처리
 
-- **루틴 관리 기능**
-  - 활성 루틴 목록 조회 (`GetActiveRoutinesAsync`)
-  - 새 루틴 추가 (`AddRoutineAsync`)
-  - 루틴 완료 상태 설정 (`SetRoutineCompletionAsync`)
-  - 날짜별 완료 상태 일괄 조회 (`GetAllRoutineCompletionStatusAsync`)
-  - SQL 파라미터 바인딩으로 SQL Injection 방지
+- **스키마 관리**
+  - PRIMARY KEY AUTOINCREMENT 적용
+  - 한국 시간(KST, UTC+9) 기준 날짜 저장
+  - 타입 안전성 보장 (TEXT/INTEGER 자동 변환)
+  - DB 마이그레이션 스크립트 (`DatabaseMigration.cs`)
 
-- **UI 컨트롤러**
-  - 로딩 화면 표시 및 관리
-  - 비동기 초기화 프로세스
-  - 에러 핸들링 및 사용자 피드백
+#### 루틴 관리
+- **CRUD 기능**
+  - ✅ 활성 루틴 목록 조회 (`GetActiveRoutinesAsync`)
+  - ✅ 새 루틴 추가 (`AddRoutineAsync`)
+  - ✅ 루틴 완료 상태 설정 (`SetRoutineCompletionAsync`)
+  - ✅ 날짜별 완료 상태 일괄 조회 (`GetAllRoutineCompletionStatusAsync`)
+  - ✅ SQL 파라미터 바인딩으로 SQL Injection 방지
 
-- **스와이프 UI**
-  - 좌우 스와이프 페이지 네비게이션
-  - 탭 인디케이터 자동 업데이트
-  - 에디터(마우스) 및 Android(터치) 입력 모두 지원
+- **완료 상태 관리**
+  - ✅ 체크박스 UI와 DB 실시간 동기화
+  - ✅ DB 업데이트 실패 시 UI 자동 롤백
+  - ✅ 일일/주간/월간 타입별 날짜 계산
+  - ✅ 자정 기준 자동 초기화 (한국 시간)
 
-### 🚧 진행 중 / 예정
-- [ ] 루틴 목록 UI 구현
-- [ ] 루틴 추가/수정 다이얼로그
+#### UI 구현
+- **루틴 목록**
+  - ✅ 루틴 아이템 프리팹 (`RoutineItemUI`)
+  - ✅ 동적 목록 생성 및 새로고침
+  - ✅ 체크박스 상태 표시 및 토글
+
+- **루틴 추가**
+  - ✅ 추가 다이얼로그 스크립트 (`AddRoutineDialog`)
+  - ✅ 입력 유효성 검사
+  - ✅ 타입/카테고리 선택 (Dropdown)
+  - 🔨 UI 레이아웃 작업 필요 (가이드: `UNITY_UI_SETUP.md`)
+
+- **스와이프 네비게이션**
+  - ✅ 좌우 스와이프 페이지 전환
+  - ✅ 탭 인디케이터 자동 업데이트
+  - ✅ 에디터(마우스) 및 Android(터치) 입력 지원
+
+### 🚧 진행 중
+- [ ] 루틴 추가 다이얼로그 UI 구성 (로직 완료, UI 작업 필요)
+- [ ] 루틴 수정/삭제 기능
 - [ ] 완료 통계 및 시각화
 - [ ] 캘린더 뷰 통합
+
+### 📋 예정
+- [ ] 루틴 카테고리 커스터마이징
 - [ ] 알림 기능
+- [ ] 데이터 백업/복원
+- [ ] 다크 모드
 
 ## 개발 가이드
 
@@ -105,33 +132,75 @@ Assets/
 
 ### 데이터베이스 초기화
 
-**중요**: CSV import는 PRIMARY KEY가 제대로 설정되지 않으므로 사용하지 마세요!
+**⚠️ 중요**: CSV import는 PRIMARY KEY가 제대로 설정되지 않으므로 사용하지 마세요!
 
 **권장 방법**: Unity 에디터에서 마이그레이션 스크립트 실행
-1. 빈 GameObject 생성
+
+#### 초기 설정 또는 스키마 변경 시
+1. Unity 에디터에서 빈 GameObject 생성
 2. `DatabaseMigration.cs` 컴포넌트 추가
 3. Play 모드로 실행
-4. 콘솔에서 완료 확인 후 GameObject 삭제
+4. 콘솔에서 완료 메시지 확인:
+   ```
+   🎉 데이터베이스 마이그레이션 완료!
+   ```
+5. Play 모드 종료 후 GameObject 삭제
 
-마이그레이션은 올바른 스키마로 테이블을 생성하고 기존 데이터가 있으면 백업 후 복원합니다.
+#### 마이그레이션 기능
+- ✅ 올바른 스키마로 테이블 재생성 (PRIMARY KEY AUTOINCREMENT)
+- ✅ 기존 데이터 자동 백업 및 복원
+- ✅ 한국 시간(KST) 기본값 적용
+- ✅ 테이블이 없어도 안전하게 실행 가능
+
+### 루틴 추가 UI 구성
+
+루틴 추가 기능의 로직은 완성되었지만 Unity UI 구성이 필요합니다.
+
+**가이드 문서**: `UNITY_UI_SETUP.md` 참고
+
+**필요한 작업** (~20분):
+1. + 버튼 생성 및 배치
+2. AddRoutineDialog Panel 구성
+3. InputField, Dropdown, Button 컴포넌트 연결
+4. 테스트
 
 ### 빌드 주의사항
 - **Windows**: StreamingAssets의 DB 파일이 읽기 전용
 - **Android**: APK에 포함된 DB는 수정 불가하므로 앱 시작 시 내부 저장소로 복사 필요
+- **시간대**: 모든 날짜/시간은 한국 시간(KST, UTC+9) 기준
 
 ## 코드 구조
 
-### DatabaseManager.cs
+### 핵심 클래스
+
+#### DatabaseManager.cs
 - 싱글톤 패턴으로 전역 DB 접근 제공
 - UniTask 기반 비동기 쿼리
 - 씬 전환 시에도 인스턴스 유지 (`DontDestroyOnLoad`)
+- 타입 안전 데이터 읽기/쓰기
 
-### RoutineUIController.cs
+#### RoutineUIController.cs
 - 앱 초기화 프로세스 관리
 - DB와 UI 연결 역할
-- 로딩 상태 표시 및 에러 처리
+- 루틴 목록 로딩 및 새로고침
+- 다이얼로그 관리
 
-### SwipeUI.cs
+#### RoutineItemUI.cs
+- 개별 루틴 아이템 UI 컴포넌트
+- 체크박스 이벤트 처리
+- DB 업데이트 실패 시 UI 롤백
+
+#### AddRoutineDialog.cs
+- 루틴 추가 다이얼로그 로직
+- 입력 유효성 검사
+- 타입/카테고리 변환 (한글 ↔ 영문)
+
+#### DatabaseMigration.cs (일회성)
+- DB 스키마 마이그레이션 스크립트
+- 테이블 재생성 및 데이터 복원
+- PRIMARY KEY AUTOINCREMENT 적용
+
+#### SwipeUI.cs
 - Scrollbar 기반 페이지 전환
 - 스와이프 제스처 감지 및 처리
 - 부드러운 애니메이션 (Lerp)
