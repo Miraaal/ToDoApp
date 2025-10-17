@@ -241,8 +241,6 @@ Assets/
 - ✅ .gitignore에 IDE 설정 파일 추가
 - ✅ 프로젝트 README 작성
 - ✅ GitHub 저장소 초기 설정
-
-### 이전 작업 (날짜 미상)
 - ✅ Unity 프로젝트 생성
 - ✅ SQLite DB 연결 (DatabaseManager.cs)
 - ✅ 루틴 목록 조회 기능
