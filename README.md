@@ -83,6 +83,7 @@ Assets/
 - **CRUD 기능**
   - ✅ 활성 루틴 목록 조회 (`GetActiveRoutinesAsync`)
   - ✅ 새 루틴 추가 (`AddRoutineAsync`)
+  - ✅ 루틴 삭제 (`DeleteRoutineAsync`) - 트랜잭션으로 완료 기록과 함께 안전 삭제
   - ✅ 루틴 완료 상태 설정 (`SetRoutineCompletionAsync`)
   - ✅ 날짜별 완료 상태 일괄 조회 (`GetAllRoutineCompletionStatusAsync`)
   - ✅ SQL 파라미터 바인딩으로 SQL Injection 방지
@@ -103,7 +104,12 @@ Assets/
   - ✅ 추가 다이얼로그 스크립트 (`AddRoutineDialog`)
   - ✅ 입력 유효성 검사
   - ✅ 타입/카테고리 선택 (Dropdown)
-  - 🔨 UI 레이아웃 작업 필요 (가이드: `UNITY_UI_SETUP.md`)
+  - ✅ UI 구성 및 테스트 완료
+
+- **루틴 삭제**
+  - ✅ 삭제 버튼 UI (`RoutineItemUI`)
+  - ✅ 확인 다이얼로그 (`ConfirmationDialog`)
+  - ✅ 트랜잭션 기반 안전한 삭제
 
 - **스와이프 네비게이션**
   - ✅ 좌우 스와이프 페이지 전환
@@ -111,8 +117,7 @@ Assets/
   - ✅ 에디터(마우스) 및 Android(터치) 입력 지원
 
 ### 🚧 진행 중
-- [ ] 루틴 추가 다이얼로그 UI 구성 (로직 완료, UI 작업 필요)
-- [ ] 루틴 수정/삭제 기능
+- [ ] 루틴 편집 기능 (추가/삭제 완료, 수정 기능 필요)
 - [ ] 완료 통계 및 시각화
 - [ ] 캘린더 뷰 통합
 
@@ -207,6 +212,29 @@ Assets/
 
 ## 개발 히스토리
 
+### 2025-10-29 (화)
+- ✅ **루틴 추가 기능 완전 구현**
+  - AddRoutineDialog UI 구성 및 Inspector 연결 완료
+  - 루틴 추가 폼 (제목, 타입, 카테고리, 설명) 동작 테스트 완료
+  - 입력 유효성 검사 및 데이터 저장 기능 정상 작동 확인
+
+- ✅ **루틴 삭제 기능 완전 구현**
+  - DatabaseManager에 DeleteRoutineAsync() 메서드 추가
+  - 트랜잭션으로 루틴과 완료 기록 안전하게 동시 삭제
+  - RoutineItemUI에 삭제 버튼 UI 요소 추가
+  - 삭제 확인 다이얼로그 (ConfirmationDialog.cs) 컴포넌트 생성
+  - 실수 방지를 위한 사용자 확인 절차 구현
+
+- ✅ **코드 품질 개선**
+  - AddRoutineDialog.cs에서 불필요한 using System; 지시문 제거
+  - Unity 프로젝트 버전을 6000.2.8f1로 업데이트
+  - CLAUDE.md 문서의 Unity 버전 정보 동기화
+
+- ✅ **UI 아키텍처 확장**
+  - 재사용 가능한 ConfirmationDialog 컴포넌트 설계
+  - 콜백 기반 유연한 확인 다이얼로그 시스템
+  - 삭제 후 자동 목록 새로고침 기능
+
 ### 2025-10-17 (목)
 - ✅ **루틴 완료 체크박스 기능 구현**
   - 체크박스 UI와 DB 실시간 동기화
@@ -253,4 +281,4 @@ Assets/
 
 ---
 
-**마지막 업데이트**: 2025-10-17
+**마지막 업데이트**: 2025-10-29

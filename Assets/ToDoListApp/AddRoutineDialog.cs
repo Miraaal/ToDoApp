@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using System;
 
 /// <summary>
 /// 루틴 추가 다이얼로그

@@ -10,6 +10,7 @@ public class RoutineItemUI : MonoBehaviour
     [SerializeField] private Text categoryText;
     [SerializeField] private Toggle completionToggle;  // 체크박스
     [SerializeField] private Text typeText; // (옵션)
+    [SerializeField] private Button deleteButton; // 삭제 버튼
 
     private RoutineData routineData;
     private RoutineUIController controller;
@@ -31,6 +32,12 @@ public class RoutineItemUI : MonoBehaviour
 
         // Toggle 이벤트 연결
         completionToggle.onValueChanged.AddListener(OnToggleChanged);
+
+        // 삭제 버튼 이벤트 연결
+        if (deleteButton != null)
+        {
+            deleteButton.onClick.AddListener(OnDeleteButtonClicked);
+        }
     }
 
     /// <summary>
@@ -46,5 +53,14 @@ public class RoutineItemUI : MonoBehaviour
         {
             completionToggle.SetIsOnWithoutNotify(!isChecked);
         }
+    }
+
+    /// <summary>
+    /// 삭제 버튼 클릭 시 호출되는 메소드
+    /// </summary>
+    private async void OnDeleteButtonClicked()
+    {
+        // 삭제 확인 요청을 컨트롤러에게 전달
+        await controller.OnDeleteRoutineRequestedAsync(routineData.id, routineData.title);
     }
 }

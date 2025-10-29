@@ -316,6 +316,70 @@ public class DatabaseManager : MonoBehaviour
             Debug.Log("🔒 데이터베이스 연결 종료");
         }
     }
+
+    /// <summary>
+    /// 루틴 삭제 (관련된 완료 기록도 함께 삭제)
+    /// </summary>
+    public async UniTask<bool> DeleteRoutineAsync(int routineId)
+    {
+        if (!IsConnected)
+        {
+            Debug.LogError("❌ DB가 연결되지 않았습니다.");
+            return false;
+        }
+
+        await UniTask.SwitchToThreadPool();
+
+        try
+        {
+            // 트랜잭션 시작
+            var transaction = dbConnection.BeginTransaction();
+
+            try
+            {
+                // 1. 관련된 완료 기록 삭제
+                var deleteCompletionsCommand = dbConnection.CreateCommand();
+                deleteCompletionsCommand.Transaction = transaction;
+                deleteCompletionsCommand.CommandText = "DELETE FROM routine_completions WHERE routine_id = @routineId";
+                AddParameter(deleteCompletionsCommand, "@routineId", routineId);
+                int completionsDeleted = deleteCompletionsCommand.ExecuteNonQuery();
+
+                // 2. 루틴 삭제
+                var deleteRoutineCommand = dbConnection.CreateCommand();
+                deleteRoutineCommand.Transaction = transaction;
+                deleteRoutineCommand.CommandText = "DELETE FROM routines WHERE id = @routineId";
+                AddParameter(deleteRoutineCommand, "@routineId", routineId);
+                int routinesDeleted = deleteRoutineCommand.ExecuteNonQuery();
+
+                // 트랜잭션 커밋
+                transaction.Commit();
+
+                await UniTask.SwitchToMainThread();
+                
+                if (routinesDeleted > 0)
+                {
+                    Debug.Log($"✅ 루틴 삭제 완료: ID {routineId} (관련 완료기록 {completionsDeleted}개도 삭제됨)");
+                    return true;
+                }
+                else
+                {
+                    Debug.LogWarning($"⚠️ 삭제할 루틴을 찾을 수 없습니다: ID {routineId}");
+                    return false;
+                }
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            await UniTask.SwitchToMainThread();
+            Debug.LogError($"❌ 루틴 삭제 실패: {ex.Message}");
+            return false;
+        }
+    }
 }
 
 /// <summary>

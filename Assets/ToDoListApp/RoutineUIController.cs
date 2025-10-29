@@ -21,6 +21,9 @@ public class RoutineUIController : MonoBehaviour
     [SerializeField] private Button addRoutineButton;
     [SerializeField] private AddRoutineDialog addRoutineDialog;
 
+    [Header("확인 다이얼로그")]
+    [SerializeField] private ConfirmationDialog confirmationDialog;
+
     async void Start()
     {
         // 다이얼로그 초기화
@@ -162,6 +165,49 @@ public class RoutineUIController : MonoBehaviour
         }
 
         return success;
+    }
+
+    /// <summary>
+    /// 루틴 삭제 요청 (RoutineItemUI에서 호출)
+    /// </summary>
+    public async UniTask OnDeleteRoutineRequestedAsync(int routineId, string routineTitle)
+    {
+        // 확인 다이얼로그가 연결되어 있으면 확인 팝업 표시
+        if (confirmationDialog != null)
+        {
+            confirmationDialog.Show(
+                "루틴 삭제",
+                $"'{routineTitle}' 루틴을 정말로 삭제하시겠습니까?\n\n삭제된 루틴과 관련된 모든 완료 기록도 함께 삭제됩니다.",
+                async () => await PerformDeleteRoutineAsync(routineId, routineTitle) // 확인 시 실행
+            );
+        }
+        else
+        {
+            // 확인 다이얼로그가 없으면 바로 삭제 (기존 방식)
+            await PerformDeleteRoutineAsync(routineId, routineTitle);
+        }
+    }
+
+    /// <summary>
+    /// 실제 루틴 삭제 수행
+    /// </summary>
+    private async UniTask PerformDeleteRoutineAsync(int routineId, string routineTitle)
+    {
+        ShowLoading("루틴 삭제 중...");
+
+        bool success = await DatabaseManager.Instance.DeleteRoutineAsync(routineId);
+
+        if (success)
+        {
+            Debug.Log($"✅ 루틴 삭제 성공: {routineTitle}");
+            await LoadRoutinesAsync(); // 목록 새로고침
+        }
+        else
+        {
+            Debug.LogError($"❌ 루틴 삭제 실패: {routineTitle}");
+        }
+
+        HideLoading();
     }
 
     /// <summary>

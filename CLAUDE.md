@@ -9,7 +9,35 @@ This is a Unity-based Todo List and Routine Tracking application. Despite the pr
 - Track completion of tasks over time (daily, weekly, monthly)
 - Store data in an SQLite database
 
-**Unity Version**: 6000.0.59f2 (Unity 6)
+**Unity Version**: 6000.2.8f1 (Unity 6)
+
+## Development Commands
+
+### Unity Project Setup
+```bash
+# Open Unity Hub and add this directory as a project
+# Unity 6000.2.8f1 is required
+# Main scene: Assets/Scenes/TodoLIst.unity
+```
+
+### Database Operations
+```bash
+# Create/migrate database schema (run in Unity Editor)
+# 1. Create empty GameObject in scene
+# 2. Attach DatabaseMigration.cs component  
+# 3. Enter Play mode to execute migration
+# 4. Check console for "🎉 데이터베이스 마이그레이션 완료!"
+
+# Manual database access (if needed)
+sqlite3 Assets/StreamingAssets/ToDoList_DB.db
+```
+
+### Testing
+```bash
+# Database connection test
+# 1. Attach DB_Test.cs to GameObject in scene
+# 2. Run scene and check Unity Console for connection status
+```
 
 ## Database Architecture
 
@@ -63,27 +91,45 @@ Sample data exists in two CSV files at the project root:
 
 **WARNING:** Direct CSV import (`.import` command) creates tables without constraints and should be avoided.
 
-## Project Structure
+## Code Architecture
 
+### Core Components
+
+**DatabaseManager.cs** (Singleton)
+- Manages SQLite connection lifecycle using `Mono.Data.Sqlite`
+- All database operations are async using `UniTask`
+- Survives scene transitions with `DontDestroyOnLoad`
+- Key methods: `AddRoutineAsync()`, `DeleteRoutineAsync()`, `GetActiveRoutinesAsync()`
+
+**RoutineUIController.cs** (Main Controller)
+- Orchestrates UI initialization and data loading
+- Connects UI events to database operations
+- Manages loading states and error handling
+- Controls dialog lifecycles (AddRoutineDialog, ConfirmationDialog)
+
+**UI Component Hierarchy:**
 ```
-Assets/
-├── ToDoListApp/           # Main application code
-│   ├── DB_Test.cs         # Database connection testing
-│   └── MainManager.cs     # Main game manager
-├── Scenes/
-│   ├── SampleScene.unity
-│   └── TodoLIst.unity     # Main todo list scene
-├── StreamingAssets/
-│   └── ToDoList_DB.db     # SQLite database (runtime accessible)
-└── Settings/              # Unity project settings
+RoutineUIController (Scene Controller)
+├── AddRoutineDialog (Modal for adding routines)
+├── ConfirmationDialog (Reusable confirmation popup)  
+└── RoutineItemUI (Prefab instances for each routine)
+    ├── Completion Toggle (checkbox with DB sync)
+    └── Delete Button (triggers confirmation flow)
 ```
 
-## Key Technologies
+### Data Flow Pattern
 
-- **Unity Input System** (1.14.2) - For handling user interactions
-- **Universal Render Pipeline** (17.0.4) - Unity's rendering pipeline
-- **SQLite with Mono.Data.Sqlite** - For persistent data storage
-- **Unity UI (UGUI)** (2.0.0) - For interface
+1. **Initialization**: `RoutineUIController.Start()` → `DatabaseManager.ConnectDatabaseAsync()`
+2. **Data Loading**: `LoadRoutinesAsync()` → `GetActiveRoutinesAsync()` + `GetAllRoutineCompletionStatusAsync()`
+3. **UI Updates**: Dynamic prefab instantiation with real-time completion status
+4. **User Actions**: UI events → Controller methods → Database operations → UI refresh
+
+### Key Technologies
+
+- **UniTask** (Cysharp) - Async/await for Unity without coroutines
+- **SQLite with Mono.Data.Sqlite** - Local database with SQL parameterization
+- **Unity Input System** (1.14.2) - Touch/mouse input handling
+- **Universal Render Pipeline** (17.0.4) - Unity's modern rendering
 
 ## Database Connection Pattern
 
@@ -97,28 +143,56 @@ dbConnection.Open();
 
 **Important**: `Application.streamingAssetsPath` is platform-dependent. On Windows builds, files are read-only.
 
-## Development Notes
+## Critical Development Patterns
 
-### Opening the Project
-1. Open Unity Hub
-2. Add project from this directory
-3. Unity version 6000.0.59f2 is required
-4. The project will automatically load dependencies from Packages/manifest.json
+### Database Transaction Safety
+All database mutations use transactions for data integrity:
+```csharp
+var transaction = dbConnection.BeginTransaction();
+try {
+    // Multiple related operations
+    transaction.Commit();
+} catch {
+    transaction.Rollback();
+    throw;
+}
+```
 
-### Testing Database Connection
-- Attach `DB_Test.cs` to a GameObject in the scene
-- Run the scene to test database connectivity
-- Check Unity Console for connection errors
+### UI-Database Synchronization  
+UI updates follow optimistic updates with rollback on failure:
+```csharp
+// Update UI immediately
+toggle.SetIsOnWithoutNotify(newValue);
 
-### Working with SQLite in Unity
-- Database file must be in `Assets/StreamingAssets/` for runtime access
-- Use `Mono.Data.Sqlite` namespace (included with Unity)
-- Connection string uses `URI=file:` prefix
-- Always properly close database connections to prevent locks
+// Attempt database update
+bool success = await DatabaseManager.Instance.SetRoutineCompletionAsync(...);
 
-### Scene Organization
-- `TodoLIst.unity` is the main application scene
-- `SampleScene.unity` appears to be a test/template scene
+// Rollback UI if DB update failed
+if (!success) {
+    toggle.SetIsOnWithoutNotify(!newValue);
+}
+```
 
-## Language
-The application is primarily in Korean (한국어), as evidenced by database categories and UI planning.
+### Routine Type Date Calculations
+Date handling varies by routine type:
+- **Daily**: Current date (`yyyy-MM-dd`)
+- **Weekly**: Sunday of current week  
+- **Monthly**: First day of current month
+
+All timestamps use Korean timezone (UTC+9): `datetime('now', '+9 hours')`
+
+### Dialog Management Pattern
+All dialogs follow this lifecycle:
+1. Initialize with controller reference
+2. `gameObject.SetActive(false)` by default
+3. `Show()` method activates and configures
+4. User action triggers callback
+5. `Hide()` method deactivates and clears callbacks
+
+## Important Constraints
+
+- **Database Location**: Must be in `Assets/StreamingAssets/` for runtime access
+- **Platform Differences**: Windows builds have read-only StreamingAssets
+- **Schema Requirements**: Tables must have `PRIMARY KEY AUTOINCREMENT` 
+- **Language**: UI and database content primarily in Korean (한국어)
+- **Time Zone**: All operations assume Korean Standard Time (KST, UTC+9)
